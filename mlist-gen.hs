@@ -1,14 +1,37 @@
 import Data.List
 import System.Random hiding (split)
-import Data.String.Utils
+--import Data.String.Utils
 import System.Environment
+
+--ExamType = Base | EGE | OGE
+
+split :: Char -> String -> [String]
+split _ "" = []
+split c w =
+   let (wf,wr) = break (c==) w
+   in   wf : split c (tail' wr)
+   where tail' (x:xs) = xs
+         tail' _      = []
+
+strip :: String -> String
+strip =
+ let leftStrip (x:xs) | x == ' '  = leftStrip xs
+                      | otherwise = xs
+     leftStrip "" = ""
+     rightStrip = reverse . leftStrip . reverse
+ in leftStrip . rightStrip
+join :: String -> [String] -> String
+join sep (x:y:xs) = x ++ sep ++ y ++ join sep xs
+join sep [x] = x
+join sep  _  = ""
+
 
 parseInput :: String -> (Int, [Int])
 parseInput input =
  let ls          =  lines input
      nvars       =  read (head ls) :: Int
      protNames   :: [Int]
-     protNames   =  map (\ъ -> read ъ :: Int) . split ";" . head . tail $ ls
+     protNames   =  map (\ъ -> read ъ :: Int) . split ';' . head . tail $ ls
  in  (nvars, protNames)
 
 readBaseLines :: IO [[(Int, [String])]]
@@ -19,8 +42,8 @@ readBaseLines = do
   readBaseLine file = zip protNames taskLists where
    protNames   :: [Int]
    taskLists   :: [[String]]
-   protNames   =  map (\ъ ->read ъ :: Int) . tail . split ";" . head . lines $ file
-   taskLists   =  map (filter (/= "")) . map (map strip) . transpose . map tail . map (split ";") . tail . lines $ file
+   protNames   =  map (\ъ ->read ъ :: Int) . tail . split ';' . head . lines $ file
+   taskLists   =  map (filter (/= "")) . map (map strip) . transpose . map tail . map (split ';') . tail . lines $ file
 
 randPerm :: StdGen -> [a] -> (StdGen, [a])
 randPerm g [] = (g, [])
@@ -35,8 +58,8 @@ getRandElts g n l =
      replicateList n l =  take n . concat . repeat $ l
      (g', l')          =  randPerm g l
      l''               =  replicateList n l'
-     (g'', l''')       =  randPerm g' l''
- in  (g'', l''')
+     gl @ (g'', l''')  =  randPerm g' l''
+ in  gl
 
 getRandLists :: StdGen -> Int -> [[String]] -> (StdGen, [[String]])
 getRandLists g _ []     = (g  , [])
@@ -51,6 +74,7 @@ getTaskLists protNums bases = zipWith (\i b -> concat . map snd . filter (\p -> 
 formatOutput :: Int -> [[String]] -> String
 formatOutput n tasks = "n\\v;" ++ (join ";" . map show $ [1..n] ) ++ "\n" ++ (unlines . map (\l -> (show . snd $ l) ++ ";" ++ fst l) $ n_tasks) where n_tasks = zip (map (join ";" ) tasks) [1..]
 
+-- Функция, оборачивающая чистую часть кода
 composeVars :: StdGen -> [[(Int, [String])]] -> String -> (StdGen, String)
 composeVars g baseLines input = (g', formatOutput n tasks {-unlines . map (join "\t") $ taskLists-}) where
  (n, protNames) = parseInput input
@@ -61,8 +85,8 @@ main :: IO ()
 main = do --interact (composeVars baseLines) where
  args <- getArgs
  let fname = if   null args
-             then "in.csv"
-             else head args
+         then "in.csv"
+         else head args
  g <- getStdGen
  baseLines <- readBaseLines
  inputCSV <- readFile fname
